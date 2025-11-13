@@ -1,37 +1,45 @@
-// server.js
 const express = require("express");
-const nodemailer = require("nodemailer");
+const bodyParser = require("body-parser");
 const cors = require("cors");
+const fs = require("fs"); // for storing submissions in a file (optional)
 
 const app = express();
-app.use(cors());
-app.use(express.json());
+const PORT = process.env.PORT || 3000;
 
-app.post("/send-email", async (req, res) => {
-  const { name, email, subject, message } = req.body;
+// Middleware
+app.use(cors()); // allows requests from your frontend domain
+app.use(bodyParser.json());
 
-  let transporter = nodemailer.createTransport({
-    service: "gmail",
-    auth: {
-      user: "your_email@gmail.com",
-      pass: "your_app_password"
-    }
+// Endpoint to handle contact form submission
+app.post("/api/contact", (req, res) => {
+  const formData = req.body;
+
+  // Basic validation
+  if (!formData.name || !formData.email || !formData.message) {
+    return res.status(400).json({ error: "All fields are required" });
+  }
+
+  // Save to a file (optional)
+  const submissionsFile = "submissions.json";
+  let submissions = [];
+
+  if (fs.existsSync(submissionsFile)) {
+    submissions = JSON.parse(fs.readFileSync(submissionsFile));
+  }
+
+  submissions.push({
+    ...formData,
+    submittedAt: new Date().toISOString(),
   });
 
-  let mailOptions = {
-    from: email,
-    to: "your_email@gmail.com",
-    subject: subject,
-    text: `From: ${name} (${email})\n\n${message}`
-  };
+  fs.writeFileSync(submissionsFile, JSON.stringify(submissions, null, 2));
 
-  try {
-    await transporter.sendMail(mailOptions);
-    res.status(200).send("Email sent successfully!");
-  } catch (error) {
-    console.error(error);
-    res.status(500).send("Failed to send email");
-  }
+  // Send response
+  res.status(200).json({ message: "Form submitted successfully!" });
 });
 
-app.listen(3000, () => console.log("Server running on port 3000"));
+// Start server
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
+
